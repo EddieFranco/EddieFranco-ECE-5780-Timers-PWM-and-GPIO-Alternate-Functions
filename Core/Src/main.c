@@ -82,26 +82,31 @@ int main(void)
 
   /* Configure the system clock */
   SystemClock_Config();
+ // Enable GPIOC in the RCC
+  RCC->AHBENR |= RCC_AHBENR_GPIOCEN;
+	
+  // Reset the mode of PC8, PC9 to input
+  GPIOC->MODER &= ~(GPIO_MODER_MODER8 | GPIO_MODER_MODER9);
+  
+  // Configure PC8, PC9 as an output
+  GPIOC->MODER |= GPIO_MODER_MODER8_0 | GPIO_MODER_MODER9_0;
 
-	
-  /* USER CODE BEGIN SysInit */
-  __HAL_RCC_GPIOC_CLK_ENABLE(); // Enable the GPIOC clock in the RCC
-	// Set up a configuration struct to pass to the initialization function
-	GPIO_InitTypeDef initStr = {GPIO_PIN_6|GPIO_PIN_7| GPIO_PIN_8 | GPIO_PIN_9,
-	GPIO_MODE_OUTPUT_PP,
-	GPIO_SPEED_FREQ_LOW,
-	GPIO_NOPULL};
-	
-	// Initialize all of the LED pins in the main function.
-	HAL_GPIO_Init(GPIOC, &initStr); 
-	// Set the green LED (PC9) high
-	HAL_GPIO_WritePin(GPIOC, GPIO_PIN_9, GPIO_PIN_SET);
-  /* USER CODE END SysInit */
+  // Set the output type of PC8, PC9 to push-pull
+  GPIOC->OTYPER &= ~(GPIO_OTYPER_OT_8 | GPIO_OTYPER_OT_9);
+
+  // Set the output speed of PC8, PC9 to high
+  GPIOC->OSPEEDR &= ~(GPIO_OSPEEDR_OSPEEDR8 | GPIO_OSPEEDR_OSPEEDR9);
+  
+  // Set the pull-up/down of PC8, PC9 to none
+  GPIOC->PUPDR &= ~(GPIO_PUPDR_PUPDR8 | GPIO_PUPDR_PUPDR9);
+
+  // Set PC8 to high
+  GPIOC->ODR |= GPIO_ODR_9;
 
 	
 	
   /* Initialize all configured peripherals */
-  /* USER CODE BEGIN 2 */
+  /* USER CODE BEGIN 1 */
 	//Enable the timer 2 peripheral (TIM2) in the RCC.
 	RCC->APB1ENR |= RCC_APB1ENR_TIM2EN;
 	// Configure the timer to trigger an update event (UEV) at 4 Hz.
@@ -116,44 +121,69 @@ int main(void)
 	
 	
 	
-  /* USER CODE END 2 */
+  /* USER CODE END 3.2 */
 	//Enable the timer 3 peripheral (TIM3) in the RCC.
 	RCC->APB1ENR |= RCC_APB1ENR_TIM3EN;
 	// configure the timer to a UEV period related to 800 Hz (T = 1/f).
-	TIM2 -> PSC = 999;
-	TIM2 -> ARR = 1999; 
+	TIM3 -> PSC = 79;
+	TIM3 -> ARR = 125; 
 	// Use the Capture/Compare Mode Register 1 (CCMR1) register to configure the output channels
   //to PWM mode
 	// The CCMR1 register configures channels 1 & 2, and the CCMR2 register for channels
   //3 & 4.
-	TIM3->CCMR1 |= TIM_CCMR1_CC1S_0 | TIM_CCMR1_CC1S_0;
-	// Examine the bit definitions for the OC1M[2:0] bit field; set output channel 1 to PWM
-	// Mode 2.
-	TIM3->CCMR1 &= ~TIM_CCMR1_OC1M;  //  Clear OC1M bits
-	TIM3->CCMR1 |= (TIM_CCMR1_OC1M_1 | TIM_CCMR1_OC1M_2); 
+	//Examine the bit definitions for the CC1S[1:0] and CC2S[1:0] bit fields; ensure that you
+	//set the channels to output
+	TIM3->CCMR1 &= ~TIM_CCMR1_CC1S_0 | TIM_CCMR1_CC1S_1; // Clear CC1S bits
+	TIM3->CCMR1 &= ~TIM_CCMR1_CC2S_0 | TIM_CCMR1_CC2S_1; // Clear CC2S bits
+
+	
+	// Examine the bit definitions for the OC1M[2:0] bit field; set output channel 1 to PWM Mode 2.
+	
+	 TIM3->CCMR1 |= TIM_CCMR1_OC1M_2 | TIM_CCMR1_OC1M_1 | TIM_CCMR1_OC1M_0;
+	
 	// Use the OC2M[2:0] bit field to set channel 2 to PWM Mode 1.
-	TIM3->CCMR1 |= (TIM_CCMR1_OC2M_1 | TIM_CCMR1_OC2M_2);
+	TIM3->CCMR1 &= ~TIM_CCMR1_OC2M_0;
+	TIM3->CCMR1 |= TIM_CCMR1_OC2M_1 | TIM_CCMR1_OC2M_2;
+	
+	
 	// Enable the output compare preload for both channels
-	TIM3->CCMR1 |= TIM_CCMR1_OC1PE_Msk ;
-	TIM3->CCMR1 |=  TIM_CCMR1_OC2PE_Msk ;
+	TIM3->CCMR1 |= TIM_CCMR1_OC1PE ;
+	TIM3->CCMR1 |=  TIM_CCMR1_OC2PE ;
+	
+	
+	
+	
 	// Set the output enable bits for channels 1 & 2 in the CCER register.
-	TIM3->CCMR1 |=  TIM_CCER_CC1E_Msk;
-	TIM3->CCMR1 |=  TIM_CCER_CC2E_Msk;
+	TIM3->CCER |=  TIM_CCER_CC1E;
+	TIM3->CCER |=  TIM_CCER_CC2E;
+	
+	//TIM3->CCER |= TIM_CCER_CC1E | TIM_CCER_CC2E;
+	
 	// Set the capture/compare registers (CCRx) for both channels to 20% of your ARR value
-	TIM3->CCR1|=1000;
-	TIM3->CCR2|=1000;
+	TIM3->CCR1|= 80; // ARR*0.2
+	TIM3->CCR2|= 25;
 	
-	/* USER CODE END 3 */
 	
-	RCC->AHBENR |= RCC_AHBENR_GPIOCEN_Msk;
+	
+	TIM3->CR1 |= TIM_CR1_CEN;
+	/* USER CODE END 3.3 */
+	// Enable the timer 3 peripheral (TIM3) in the RCC
+	RCC->APB1ENR |= RCC_APB1ENR_TIM3EN;
+	
+	// Configure the LED pins to alternate function mode
+	GPIOC->MODER &= ~(GPIO_MODER_MODER6 | GPIO_MODER_MODER7);
 	GPIOC->MODER |= GPIO_MODER_MODER6_1 ;
 	GPIOC->MODER |= GPIO_MODER_MODER7_1 ;
-	//Alternate functions that connect to the capture/compare channels of timers have the
-	//form: “TIMx_CHy”.
-	GPIOC->AFR[0] |= GPIO_AFRL_AFSEL6_Msk;
-	GPIOC->AFR[0] |= GPIO_AFRL_AFSEL7_Msk;
 	
-	
+	// Config all LEDs as push-pull output type
+  GPIOC->OTYPER &= ~(GPIO_OTYPER_OT_6 | GPIO_OTYPER_OT_7 );
+
+  // Config all LEDs to low speed
+  GPIOC->OSPEEDR &= ~(GPIO_OSPEEDR_OSPEEDR6_Msk | GPIO_OSPEEDR_OSPEEDR7_Msk);
+
+  // Config all LEDs with no pull-up/down resistors
+  GPIOC->PUPDR &= ~(GPIO_PUPDR_PUPDR6_Msk | GPIO_PUPDR_PUPDR7_Msk);
+
 	
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
